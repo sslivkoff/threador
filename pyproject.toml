@@ -1,0 +1,19 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "pythreador"
+readme = "README.md"
+requires-python = ">=3.7"
+dynamic = ["version", "description"]
+
+[project.scripts]
+threador = "threador.thread_utils:main"
+
+[tool.flit.module]
+name = "threador"
+
+[tool.mypy]
+strict = true
+files = ["threador"]

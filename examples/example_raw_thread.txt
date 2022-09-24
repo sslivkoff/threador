@@ -1,0 +1,17 @@
+# example_raw_thread.txt
+
+this is the first tweet
+
+it is an introduction
+
+
+
+this is the next tweet
+
+
+
+tweets are separated by 2 or more blank lines
+
+
+
+this is the final tweet
