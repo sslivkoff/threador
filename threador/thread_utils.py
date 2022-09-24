@@ -31,8 +31,15 @@ if typing.TYPE_CHECKING:
 
     class Tweet(typing_extensions.TypedDict):
         text: str
-        annotations: typing.Sequence[str]
+        annotations: TweetAnnotations
         length: int
+
+    class TweetAnnotations(typing_extensions.TypedDict):
+        comments: typing.MutableSequence[str]
+        images: typing.MutableSequence[str]
+        unknown_annotations: typing.MutableSequence[str]
+        table_of_contents: bool
+        section_start: str | None
 
     class ScriptArgs(typing_extensions.TypedDict):
         path: str
@@ -40,6 +47,7 @@ if typing.TYPE_CHECKING:
         print_tweets: bool
         print_annotations: bool
         print_summary: bool
+        use_color: bool
 
 
 char_limit = 280
@@ -103,6 +111,7 @@ def str_to_tweets(content: str, add_indices: bool) -> typing.Sequence[Tweet]:
     """see parsing rules above"""
 
     # get rid of any set of 4 blank lines or more
+    content = content.strip()
     while '\n\n\n\n' in content:
         content = content.replace('\n\n\n\n', '\n\n\n')
 
@@ -111,20 +120,41 @@ def str_to_tweets(content: str, add_indices: bool) -> typing.Sequence[Tweet]:
 
     # parse raw tweets
     tweets = []
-    for raw_tweet in raw_tweets:
+    add_toc = False
+    for t, raw_tweet in enumerate(raw_tweets):
 
         lines = raw_tweet.split('\n')
 
         tweet_lines = []
-        annotations = []
+        annotations: TweetAnnotations = {
+            'comments': [],
+            'images': [],
+            'unknown_annotations': [],
+            'table_of_contents': False,
+            'section_start': None,
+        }
         for line in lines:
             if line.startswith('['):
                 line = line.lstrip('[').rstrip(']')
-                annotations.append(line)
+
+                if line == 'table of contents':
+                    annotations['table_of_contents'] = True
+                    add_toc = True
+                    tweet_lines.append('<TOC>')
+                elif line.startswith('section: '):
+                    annotations['section_start'] = line.split(': ')[1]
+                elif line.startswith('image: '):
+                    annotations['images'].append(line.split(': ')[1])
+                elif line.startswith('comment: '):
+                    annotations['comments'].append(line.split(': ')[1])
+                else:
+                    annotations['unknown_annotations'].append(line)
+
             else:
                 tweet_lines.append(line)
 
         text = '\n'.join(tweet_lines)
+        text = text.strip()
 
         # TODO: count length more accurately
         length = len(text)
@@ -137,10 +167,44 @@ def str_to_tweets(content: str, add_indices: bool) -> typing.Sequence[Tweet]:
 
         tweets.append(tweet)
 
+    if add_toc:
+
+        toc_template = 'table of contents\n{toc_lines}'
+
+        if len(tweets) < 10:
+            toc_section_template = 'tweets {start:01} - {end} = {name}'
+        elif len(tweets) < 100:
+            toc_section_template = 'tweets {start:02} - {end} = {name}'
+        else:
+            toc_section_template = 'tweets {start:03} - {end} = {name}'
+
+        # gather sections
+        sections = []
+        for t, tweet in enumerate(tweets):
+            section_start = tweet['annotations']['section_start']
+            if section_start is not None:
+                sections.append({'name': section_start, 'start': t + 1})
+        for s, section in enumerate(sections[:-1]):
+            sections[s]['end'] = sections[s + 1]['start']
+        sections[-1]['end'] = len(tweets)
+
+        # build toc text
+        toc_lines = [
+            toc_section_template.format(**section) for section in sections
+        ]
+        toc_text = toc_template.format(toc_lines='\n'.join(toc_lines))
+
+        # add toc to tweets
+        for tweet in tweets:
+            if tweet['annotations']['table_of_contents']:
+                tweet['text'] = tweet['text'].replace('<TOC>', toc_text)
+
     if add_indices:
         for t, tweet in enumerate(tweets):
             tweet['text'] += '\n\n' + str(t + 1) + ' / ' + str(len(tweets))
-            tweet['length'] = len(tweet['text'])
+
+    for tweet in tweets:
+        tweet['length'] = len(tweet['text'])
 
     return tweets
 
@@ -148,35 +212,25 @@ def str_to_tweets(content: str, add_indices: bool) -> typing.Sequence[Tweet]:
 def print_tweets(
     tweets: typing.Sequence[Tweet],
     print_annotations: bool,
-    use_color: bool,
 ) -> None:
-
-    if use_color:
-        color_system = 'truecolor'
-    else:
-        color_system = None
 
     for t, tweet in enumerate(tweets):
         toolstr.print_horizontal_line(style=styles['chrome'])
-        toolstr.print(
-            tweet['text'], style=styles['tweet'], color_system=color_system
-        )
+        toolstr.print(tweet['text'], style=styles['tweet'])
 
         if print_annotations:
-            if len(tweet['annotations']) > 0:
-                print()
-                toolstr.print(
-                    'annotations',
-                    style=styles['chrome'],
-                    color_system=color_system,
-                )
-            for annotation in tweet['annotations']:
-                toolstr.print(
-                    '-',
-                    annotation,
-                    style=styles['chrome'],
-                    color_system=color_system,
-                )
+            annotations = tweet['annotations']
+            keys: typing.Sequence[
+                typing_extensions.Literal[
+                    'comments', 'images', 'unknown_annotations'
+                ]
+            ] = ['comments', 'images', 'unknown_annotations']
+            for key in keys:
+                if len(annotations[key]) > 0:
+                    print()
+                    toolstr.print(key, style=styles['chrome'])
+                    for annotation in annotations[key]:
+                        toolstr.print('-', annotation, style=styles['chrome'])
 
         if tweet['length'] > char_limit:
             metadata_style = styles['violation']
@@ -189,7 +243,6 @@ def print_tweets(
             'length = ' + str(tweet['length']) + ' chars',
             justify='right',
             style=metadata_style,
-            color_system=color_system,
         )
 
 
@@ -202,16 +255,22 @@ def print_tweet_summary(tweets: typing.Sequence[Tweet]) -> None:
     print('- number of tweets:', len(tweets))
     print('- number of tweets over char limit:', n_over_char_limit)
 
-    # annotations
-    all_annotations = [
-        annotation for tweet in tweets for annotation in tweet['annotations']
+    images = [
+        image for tweet in tweets for image in tweet['annotations']['images']
     ]
-    if len(all_annotations) == 0:
-        print('- no annotations')
-    else:
-        print('- annotations (' + str(len(all_annotations)) + '):')
-        for a, annotation in enumerate(all_annotations):
-            print('    ' + str(a + 1) + '. ' + annotation)
+    print('- images: ' + str(len(images)))
+    for image in images:
+        print('    - ' + image)
+
+    # all_annotations = [
+    #     annotation for tweet in tweets for annotation in tweet['annotations']
+    # ]
+    # if len(all_annotations) == 0:
+    #     print('- no annotations')
+    # else:
+    #     print('- annotations (' + str(len(all_annotations)) + '):')
+    #     for a, annotation in enumerate(all_annotations):
+    #         print('    ' + str(a + 1) + '. ' + annotation)
 
 
 def main() -> None:
@@ -228,11 +287,12 @@ def main() -> None:
     tweets = str_to_tweets(content, add_indices=args['add_index'])
 
     # print tweets
+    if args['use_color']:
+        toolstr.set_default_color_system('truecolor')
     if args['print_tweets']:
         print_tweets(
             tweets,
             print_annotations=args['print_annotations'],
-            use_color=args['use_color'],
         )
 
         if args['print_summary']:
