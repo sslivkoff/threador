@@ -272,19 +272,18 @@ def print_tweet_summary(tweets: typing.Sequence[Tweet]) -> None:
     images = [
         image for tweet in tweets for image in tweet['annotations']['images']
     ]
-    print('- images: ' + str(len(images)))
+    print()
+    print('images: ' + str(len(images)))
     for image in images:
-        print('    - ' + image)
+        print('- ' + image)
 
-    # all_annotations = [
-    #     annotation for tweet in tweets for annotation in tweet['annotations']
-    # ]
-    # if len(all_annotations) == 0:
-    #     print('- no annotations')
-    # else:
-    #     print('- annotations (' + str(len(all_annotations)) + '):')
-    #     for a, annotation in enumerate(all_annotations):
-    #         print('    ' + str(a + 1) + '. ' + annotation)
+    unknown_annotations = [
+        annotation for tweet in tweets for annotation in tweet['annotations']['unknown_annotations']
+    ]
+    print()
+    print('unknown_annotations: ' + str(len(unknown_annotations)))
+    for annotation in unknown_annotations:
+        print('-', annotation)
 
 
 def main() -> None:
