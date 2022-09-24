@@ -265,6 +265,9 @@ def print_tweet_summary(tweets: typing.Sequence[Tweet]) -> None:
     toolstr.print_text_box('Tweet thread summary')
     print('- number of tweets:', len(tweets))
     print('- number of tweets over char limit:', n_over_char_limit)
+    if len(big_tweets) > 0:
+        big_tweet_lengths = [str(tweet['length']) for tweet in big_tweets]
+        print('    - lengths: ' + ', '.join(big_tweet_lengths))
 
     images = [
         image for tweet in tweets for image in tweet['annotations']['images']
