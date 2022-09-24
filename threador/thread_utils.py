@@ -216,6 +216,17 @@ def print_tweets(
 
     for t, tweet in enumerate(tweets):
         toolstr.print_horizontal_line(style=styles['chrome'])
+        if print_annotations:
+            section_start = tweet['annotations']['section_start']
+            if section_start is not None:
+                section_title = toolstr.get_outlined_text(
+                    'NEW SECTION = ' + section_start,
+                    style=styles['compliant'],
+                    lower_border=True,
+                    left_border=True,
+                )
+                toolstr.print(section_title, justify='right')
+
         toolstr.print(tweet['text'], style=styles['tweet'])
 
         if print_annotations:
