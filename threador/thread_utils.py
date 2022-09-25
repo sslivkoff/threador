@@ -46,6 +46,7 @@ if typing.TYPE_CHECKING:
     class ScriptArgs(typing_extensions.TypedDict):
         path: str
         add_index: bool
+        add_image_hashes: bool
         print_tweets: bool
         print_annotations: bool
         print_summary: bool
@@ -102,6 +103,11 @@ def parse_args() -> ScriptArgs:
         help='show only tweets that exceed the length limit',
         action='store_true',
     )
+    parser.add_argument(
+        '--image-hashes',
+        help='give a unique hash next to each image (useful for long threads)',
+        action='store_true',
+    )
 
     # parse arguments
     args = parser.parse_args()
@@ -113,10 +119,15 @@ def parse_args() -> ScriptArgs:
         'print_summary': not args.no_summary,
         'use_color': args.color,
         'oversized_only': args.oversized,
+        'add_image_hashes': args.image_hashes,
     }
 
 
-def str_to_tweets(content: str, add_indices: bool) -> typing.Sequence[Tweet]:
+def str_to_tweets(
+    content: str,
+    add_indices: bool,
+    add_image_hashes: bool,
+) -> typing.Sequence[Tweet]:
     """see parsing rules above"""
 
     # remove lines that are purely horizontal dashes
@@ -160,7 +171,14 @@ def str_to_tweets(content: str, add_indices: bool) -> typing.Sequence[Tweet]:
                 elif line.startswith('section: '):
                     annotations['section_start'] = line.split(': ')[1]
                 elif line.startswith('image: '):
-                    annotations['images'].append(line.split(': ')[1])
+                    image = line.split(': ')[1]
+                    if add_image_hashes:
+                        import hashlib
+
+                        image_hash = hashlib.md5(image.encode()).hexdigest()
+                        image_hash = image_hash[:10]
+                        image = image_hash + ' ' + image
+                    annotations['images'].append(image)
                 elif line.startswith('comment: '):
                     annotations['comments'].append(line.split(': ')[1])
                 else:
@@ -315,7 +333,9 @@ def print_tweet_summary(tweets: typing.Sequence[Tweet]) -> None:
         print('- ' + image)
 
     unknown_annotations = [
-        annotation for tweet in tweets for annotation in tweet['annotations']['unknown_annotations']
+        annotation
+        for tweet in tweets
+        for annotation in tweet['annotations']['unknown_annotations']
     ]
     print()
     print('unknown_annotations: ' + str(len(unknown_annotations)))
@@ -334,7 +354,11 @@ def main() -> None:
         content = f.read()
 
     # process markdown content
-    tweets = str_to_tweets(content, add_indices=args['add_index'])
+    tweets = str_to_tweets(
+        content,
+        add_indices=args['add_index'],
+        add_image_hashes=args['add_image_hashes'],
+    )
 
     # print tweets
     if args['use_color']:
