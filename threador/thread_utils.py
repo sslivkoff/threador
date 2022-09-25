@@ -50,7 +50,7 @@ if typing.TYPE_CHECKING:
         print_annotations: bool
         print_summary: bool
         use_color: bool
-        oversized: bool
+        oversized_only: bool
 
 
 char_limit = 280
@@ -220,9 +220,25 @@ def str_to_tweets(content: str, add_indices: bool) -> typing.Sequence[Tweet]:
             tweet['text'] += '\n\n' + str(t + 1) + ' / ' + str(len(tweets))
 
     for tweet in tweets:
-        tweet['length'] = len(tweet['text'])
+        tweet['length'] = compute_tweet_length(tweet['text'])
 
     return tweets
+
+
+def compute_tweet_length(text: str) -> int:
+
+    # replace urls with 13 character tokens
+    tokens = []
+    for token in text.split(' '):
+        if '.' in token and token[-1] != '.' and '..' not in token:
+            token = 'X' * 13
+        tokens.append(token)
+    text = ' '.join(tokens)
+
+    # TODO: emojis / unicode
+    pass
+
+    return len(text)
 
 
 def print_tweets(
