@@ -1,0 +1,19 @@
+this is the first tweet
+
+it is an introduction
+
+-
+
+this is the next tweet
+[image: happy_emoji.png]
+[image: confused_emoji.png]
+
+-
+
+tweets are separated by either:
+- 2 or more blank lines
+- a line containing only horizontal dashes (- or ─)
+
+-
+
+this is the final tweet
