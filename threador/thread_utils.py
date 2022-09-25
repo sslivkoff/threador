@@ -3,7 +3,9 @@
 
 
 ## Tweet parsing rules
-- tweets are delimited by 3 or more newlines in a row
+- tweets are delimited by one of:
+    - 3 or more newlines in a row
+    - a row that contains only horizontal dashes {-, ─}
 - annotations are lines of a tweet enclosed by square brackets
 
 
@@ -109,6 +111,13 @@ def parse_args() -> ScriptArgs:
 
 def str_to_tweets(content: str, add_indices: bool) -> typing.Sequence[Tweet]:
     """see parsing rules above"""
+
+    # remove lines that are purely horizontal dashes
+    lines = content.split('\n')
+    for i, line in enumerate(list(lines)):
+        if len(line) > 0 and set(line).issubset({'-', '─'}):
+            lines[i] = '\n\n\n'
+    content = '\n'.join(lines)
 
     # get rid of any set of 4 blank lines or more
     content = content.strip()
@@ -220,7 +229,7 @@ def print_tweets(
             section_start = tweet['annotations']['section_start']
             if section_start is not None:
                 section_title = toolstr.get_outlined_text(
-                    'NEW SECTION = ' + section_start,
+                    ' NEW SECTION = ' + section_start,
                     style=styles['compliant'],
                     lower_border=True,
                     left_border=True,
