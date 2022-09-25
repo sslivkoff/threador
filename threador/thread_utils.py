@@ -50,6 +50,7 @@ if typing.TYPE_CHECKING:
         print_annotations: bool
         print_summary: bool
         use_color: bool
+        oversized: bool
 
 
 char_limit = 280
@@ -96,6 +97,11 @@ def parse_args() -> ScriptArgs:
         help='use colors even when piped to other program',
         action='store_true',
     )
+    parser.add_argument(
+        '--oversized',
+        help='show only tweets that exceed the length limit',
+        action='store_true',
+    )
 
     # parse arguments
     args = parser.parse_args()
@@ -106,6 +112,7 @@ def parse_args() -> ScriptArgs:
         'print_annotations': not args.no_annotations,
         'print_summary': not args.no_summary,
         'use_color': args.color,
+        'oversized_only': args.oversized,
     }
 
 
@@ -221,9 +228,14 @@ def str_to_tweets(content: str, add_indices: bool) -> typing.Sequence[Tweet]:
 def print_tweets(
     tweets: typing.Sequence[Tweet],
     print_annotations: bool,
+    oversized_only: bool,
 ) -> None:
 
     for t, tweet in enumerate(tweets):
+
+        if oversized_only and tweet['length'] <= char_limit:
+            continue
+
         toolstr.print_horizontal_line(style=styles['chrome'])
         if print_annotations:
             section_start = tweet['annotations']['section_start']
@@ -315,6 +327,7 @@ def main() -> None:
         print_tweets(
             tweets,
             print_annotations=args['print_annotations'],
+            oversized_only=args['oversized_only'],
         )
 
         if args['print_summary']:
