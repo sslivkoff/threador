@@ -148,6 +148,7 @@ def str_to_tweets(
     # parse raw tweets
     tweets = []
     add_toc = False
+    stop = False
     for t, raw_tweet in enumerate(raw_tweets):
 
         lines = raw_tweet.split('\n')
@@ -181,6 +182,9 @@ def str_to_tweets(
                     annotations['images'].append(image)
                 elif line.startswith('comment: '):
                     annotations['comments'].append(line.split(': ')[1])
+                elif line == 'stop':
+                    stop = True
+                    break
                 else:
                     annotations['unknown_annotations'].append(line)
 
@@ -200,6 +204,9 @@ def str_to_tweets(
         }
 
         tweets.append(tweet)
+
+        if stop:
+            break
 
     if add_toc:
 
